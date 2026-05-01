@@ -1,0 +1,99 @@
+# Vitalis SRS
+
+## 🟢 1. Introduction
+* **Purpose:**  
+  This Software Requirements Specification (SRS) defines the functional and non‑functional requirements for the Vitalis mobile application – an NLP‑Based Lifestyle & Metabolic Health Assistant. It is intended for developers, quality assurance engineers, system architects, and project stakeholders to guide design, implementation, and testing.
+* **Project Scope:**  
+  Vitalis will allow users to register, log daily diet/mood/symptoms through a natural‑language chatbot, view metabolic trends, access culturally relevant educational guides, and receive curated wellness product recommendations.  
+  **The system will NOT:** provide medical diagnoses, replace professional healthcare advice, integrate with electronic health records, support real‑time vital sign monitoring, or handle in‑app purchases for goods.
+
+## 🟢 2. Overall Description
+* **User Personas (Actors):**
+    * **End User (Consumer):** An individual managing lifestyle‑driven metabolic concerns (PCOS, insulin resistance, fatigue). They want effortless daily logging and trend insights.
+    * **Admin/Content Manager:** A person responsible for creating educational content, managing product listings, and monitoring system health via a separate backend portal.
+* **Operating Environment:**  
+  The client application runs on iOS (15+) and Android (10+) as a mobile app built with Flutter or React Native. The backend is deployed on a cloud platform (AWS/GCP/Azure) using Node.js/Python Flask. Data is stored in MongoDB or Firebase. The NLP engine communicates with Gemini API or OpenAI API. Continuous internet connectivity is required for all core features.
+* **Assumptions & Dependencies:**
+    * Users will have reliable internet access.
+    * Gemini/OpenAI NLP services maintain ≥ 99.9% uptime and acceptable latency.
+    * The initial language of the UI and NLP processing will be English; Roman Urdu input will be handled as a future enhancement.
+    * Product recommendations are informational/affiliate links; no in‑app purchase processing is needed.
+    * Educational guides are managed through a simple admin panel; no third‑party CMS is integrated in phase one.
+    * The system will gather user consent for health data collection and adhere to applicable data protection laws.
+
+## 🟢 3. Functional Requirements
+* **User Account Management**
+    * **FR‑01:** The system shall allow a new user to register with a unique email address and a password satisfying complexity rules (min. 8 characters, 1 uppercase, 1 digit).
+    * **FR‑02:** The system shall send a verification email upon registration; the account shall remain inactive until the user clicks the verification link.
+    * **FR‑03:** The system shall authenticate registered users using email and password, and issue a time‑limited access token.
+    * **FR‑04:** The system shall provide a “Forgot Password” function that sends a password reset link to the user’s verified email.
+    * **FR‑05:** The system shall allow logged‑in users to view and edit their profile (name, age, sex, health goals).
+    * **FR‑06:** The system shall enable a user to permanently delete their account and all associated personal data (anonymized analytics may be retained).
+* **NLP Chatbot & Daily Logging**
+    * **FR‑07:** The system shall display a chat interface where the user types plain‑language descriptions of meals, symptoms, or mood.
+    * **FR‑08:** The NLP engine shall classify the message into an intent category (food_log, symptom_log, mood_log, general_query) and extract relevant entities (food items, symptom names, mood values) using the configured external API.
+    * **FR‑09:** When intent confidence is ≥ 80%, the system shall persist the structured log entry with timestamp, type, and entities, then display a confirmation summary (e.g., “Logged: lunch – chicken karahi, naan; mood – energetic”).
+    * **FR‑10:** When intent confidence is below 80%, the system shall prompt the user to rephrase or select from suggested interpretations.
+    * **FR‑11:** The system shall permit the user to manually edit or delete any log entry for the current day.
+    * **FR‑12:** The system shall recognise shortcut commands (e.g., “/mood tired”, “/ate biryani”) to allow fast, structured logging.
+    * **FR‑13:** The system shall present a chronological daily log view showing all entries and their confirmed structured data.
+* **Metabolic Trend Tracking & Insights**
+    * **FR‑14:** The system shall generate a dashboard that aggregates logged food categories, mood distribution, and symptom frequency for user‑selected time windows (past 7, 30, or 90 days).
+    * **FR‑15:** The system shall visualise trends using line charts (e.g., mood score over time), bar charts (symptom counts), and pie charts (macronutrient proportions if a food database is connected).
+    * **FR‑16:** The system shall allow the user to apply custom date range filters to all trend views.
+    * **FR‑17:** The system shall offer an option to export the dashboard data and charts as a PDF report.
+    * **FR‑18:** The system shall highlight simple correlations, such as “On days you logged high fatigue, your sugar/carb intake was above your average.”
+* **Educational Hub**
+    * **FR‑19:** The system shall display a categorised list of lifestyle guides (e.g., PCOS diet, insulin resistance tips, stress management).
+    * **FR‑20:** The system shall provide a keyword search function over guide titles and content.
+    * **FR‑21:** The system shall render full‑text articles with images, formatted for mobile reading, and include culturally relevant examples.
+    * **FR‑22:** The system shall let a user bookmark articles and access them in a dedicated “Saved” section.
+    * **FR‑23:** The system shall recommend new articles based on the user’s logged health interests (e.g., if frequently logging fatigue, recommend energy‑related guides).
+* **Wellness Product Recommendations**
+    * **FR‑24:** The system shall present a curated product listing screen with product name, description, image, and an external link (affiliate or informational).
+    * **FR‑25:** The system shall organise products into categories aligned with health concerns (e.g., PCOS, energy, digestion).
+    * **FR‑26:** (Optional – personalisation) The system may display product suggestions on the dashboard based on the user’s prevalent logged symptoms or goals.
+* **Admin Content Management**
+    * **FR‑27:** The system shall provide a web‑based admin portal with a rich‑text editor to create, edit, and delete educational articles.
+    * **FR‑28:** The admin portal shall allow management (add, update, remove) of wellness product listings.
+    * **FR‑29:** The admin portal shall display anonymised usage analytics (daily active users, most logged symptoms, popular articles).
+
+## 🟢 4. Non‑Functional Requirements
+* **Performance**
+    * **NFR‑01:** The chatbot shall process a message and display a response within 3 seconds for 95% of requests under normal network latency (< 100 ms to backend).
+    * **NFR‑02:** App screen transitions and list loads shall complete within 2 seconds on a 4G connection.
+    * **NFR‑03:** The system shall maintain response times within 20% of baseline when handling up to 10,000 concurrent users.
+    * **NFR‑04:** The backend API server shall sustain 100 requests per second without errors during peak load.
+* **Security**
+    * **NFR‑05:** All client‑server communication shall be encrypted with TLS 1.3.
+    * **NFR‑06:** User passwords shall be hashed using bcrypt with a cost factor of 12 before storage.
+    * **NFR‑07:** The system shall implement stateless JWT‑based authentication; access tokens shall expire after 24 hours, with a secure refresh token mechanism.
+    * **NFR‑08:** Health data at rest shall be encrypted using AES‑256.
+    * **NFR‑09:** Role‑based access control shall enforce that only users with the “admin” role can access the content management portal.
+    * **NFR‑10:** All access to and modifications of personal health data shall be logged; audit logs shall be retained for 90 days.
+* **Reliability**
+    * **NFR‑11:** The overall system uptime target is 99.5%, excluding announced maintenance windows.
+    * **NFR‑12:** Automated daily database backups shall be performed, enabling point‑in‑time recovery within 1 hour of a failure.
+    * **NFR‑13:** If the external NLP API is unavailable, the system shall degrade gracefully by accepting structured manual logging and queuing NLP requests for later processing.
+* **Usability**
+    * **NFR‑14:** The mobile UI shall conform to WCAG 2.1 Level AA accessibility standards (contrast ratios, touch target sizes, screen‑reader compatibility).
+    * **NFR‑15:** The chat interface shall display clear delivery statuses (sent, processing, response received).
+    * **NFR‑16:** A first‑time user onboarding flow (tutorial) shall not exceed 3 minutes and shall cover core logging and dashboard navigation.
+    * **NFR‑17:** The layout shall adapt responsively to phones and small/medium tablets using Material Design guidelines.
+
+## 🟢 5. Visual Model Recommendations
+Create the following UML diagrams to accompany this SRS:
+* **Use Case Diagram:**  
+    - Actors: *End User*, *Admin*.  
+    - Use cases: Register, Login, Log Daily Entry (via Chat), View Trends Dashboard, Export Report, Browse Educational Hub, Manage Articles, Manage Products, View Analytics.  
+    - Show associations and an optional include for NLP processing.
+* **Entity‑Relationship Diagram (ERD):**  
+    - Entities: `User`, `LogEntry` (with discriminator type: food, mood, symptom), `FoodEntry`, `MoodRecord`, `SymptomRecord`, `Guide`, `Product`, `UserBookmark`.  
+    - Relationships: User 1—* LogEntry; LogEntry 1—0..1 FoodEntry/MoodRecord/SymptomRecord; User M—N Guide (via bookmarks); Admin manages Guide and Product.
+* **Sequence Diagram (Core NLP Chat Flow):**  
+    - Sequence: User submits message via Mobile UI → API Gateway → Chat Controller → NLP Service (Gemini) → returns parsed intent/entities → Persistence Layer saves log → Controller returns structured response → UI displays confirmation. Include a failure path where NLP confidence is low, prompting rephrase.
+* **Activity Diagram (Daily Logging Process):**  
+    - Activities: Open Chat → Type message → System validates input → NLP classification → [High confidence] Extract entities → Save log → Show confirmation; [Low confidence] Ask clarification → User refines → re‑classify.  
+    - Cover both paths and the optional shortcut command branch.
+* **(Optional) Class Diagram:**  
+    - Backend domain classes: `User`, `LogEntry`, `FoodLog`, `MoodLog`, `SymptomLog`, `NLPProcessor`, `TrendAnalyzer`, `ContentManager`, `ProductService`. Include methods like `processMessage()`, `generateTrends()`, etc.
