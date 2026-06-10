@@ -1,0 +1,1869 @@
+# Software Design Document (SDD)
+## Vitalis — NLP-Based Lifestyle & Metabolic Health Assistant
+
+---
+
+| **Document Metadata** | |
+|---|---|
+| **Project Title** | Vitalis — NLP-Based Lifestyle & Metabolic Health Assistant |
+| **Document Type** | Software Design Document (SDD) |
+| **Version** | 1.0 |
+| **Standard** | IEEE 1016-2009 Compliant |
+| **Status** | Final Draft |
+| **Repository** | https://github.com/UmerHayiat/NLP-Based-Lifestyle-Metabolic-Health-Assistant/ |
+| **Related Documents** | Project Proposal, SRS Report |
+
+---
+
+## 📑 Table of Contents
+
+- [1. Introduction](#1-introduction)
+- [2. System Overview](#2-system-overview)
+- [3. Design Considerations](#3-design-considerations)
+- [4. Architectural Design](#4-architectural-design)
+- [5. Detailed Design](#5-detailed-design)
+- [6. Data Design](#6-data-design)
+- [7. Interface Design](#7-interface-design)
+- [8. Security & Privacy Design](#8-security--privacy-design)
+- [9. Performance & Scalability Design](#9-performance--scalability-design)
+- [10. Error Handling & Logging](#10-error-handling--logging)
+- [11. Testing Strategy](#11-testing-strategy)
+- [12. Deployment & Maintenance](#12-deployment--maintenance)
+- [13. Traceability Matrix](#13-traceability-matrix)
+- [14. Appendices](#14-appendices)
+
+---
+
+## 1. Introduction
+
+### 1.1 Purpose of the SDD
+
+This Software Design Document (SDD) translates the functional and non-functional requirements defined in the Vitalis Software Requirements Specification (SRS) into a concrete, implementable software design. Vitalis is a **business-to-consumer (B2C) cross-platform mobile application** that combines an **NLP-driven journaling chatbot**, a **metabolic trend dashboard**, an **educational hub**, and **curated wellness product recommendations** — designed with a strong focus on the **South Asian (Pakistani) lifestyle context**.
+
+The intended audiences for this document are:
+
+- **Mobile Engineers** — for client-side implementation in Flutter/React Native.
+- **Backend Engineers** — for API, NLP-orchestration, and data-pipeline implementation.
+- **QA Engineers** — for design-driven test planning.
+- **DevOps Engineers** — for cloud infrastructure provisioning and monitoring.
+- **Project Stakeholders & Academic Supervisors** — for traceability and acceptance.
+- **Content & Operations Team** — to understand the admin portal and content workflow.
+
+The document conforms to **IEEE Std 1016-2009**, extended pragmatically with modern concerns: NLP integration, cross-platform mobile architecture, cultural localization, and privacy-by-design for health data.
+
+### 1.2 Scope of the System
+
+**In-Scope (v1.0):**
+
+- User account lifecycle (registration → email verification → login → profile → account deletion).
+- NLP-driven conversational logging of **diet, mood, and symptoms** in plain English.
+- Shortcut/structured commands (e.g., `/mood tired`, `/ate biryani`) for fast entry.
+- Confidence-based confirmation flow with fallback re-prompting.
+- Persistent, editable daily log timeline.
+- Trend analytics dashboard with charts and PDF export.
+- Simple correlation hints between habits and symptoms.
+- Categorised educational hub with search, full-text articles, and bookmarking.
+- Curated wellness product recommendations with external (affiliate) links.
+- Web-based admin portal for content, product, and analytics management.
+
+**Out-of-Scope (deferred):**
+
+- Medical diagnosis or treatment recommendation.
+- Integration with Electronic Health Records (EHR) or HL7/FHIR.
+- Real-time vital-sign monitoring or wearable device sync.
+- In-app purchase / payment processing.
+- Roman-Urdu NLP (queued as a phase-2 enhancement).
+- Telemedicine / live consultation with clinicians.
+
+### 1.3 Definitions, Acronyms & Abbreviations
+
+| Term | Definition |
+|---|---|
+| **SDD** | Software Design Document |
+| **SRS** | Software Requirements Specification |
+| **NLP** | Natural Language Processing |
+| **LLM** | Large Language Model (e.g., GPT-4o-mini, Gemini 1.5 Flash) |
+| **PCOS** | Polycystic Ovary Syndrome |
+| **B2C** | Business-to-Consumer |
+| **JWT** | JSON Web Token |
+| **RBAC** | Role-Based Access Control |
+| **PII** | Personally Identifiable Information |
+| **PHI** | Protected Health Information |
+| **DTO** | Data Transfer Object |
+| **CI/CD** | Continuous Integration / Continuous Deployment |
+| **WCAG** | Web Content Accessibility Guidelines |
+| **RPO / RTO** | Recovery Point Objective / Recovery Time Objective |
+| **CMS** | Content Management System |
+| **MAU / DAU** | Monthly / Daily Active Users |
+
+### 1.4 References
+
+1. **Project Proposal** — *Vitalis: NLP-Based Lifestyle & Metabolic Health Assistant.*
+2. **SRS Report** — https://github.com/UmerHayiat/NLP-Based-Lifestyle-Metabolic-Health-Assistant/
+3. **IEEE Std 1016-2009** — Standard for Software Design Descriptions.
+4. **Google Gemini API Docs** — https://ai.google.dev/docs
+5. **OpenAI API Reference** — https://platform.openai.com/docs/api-reference
+6. **OWASP Mobile Top 10 (2024)** — https://owasp.org/www-project-mobile-top-10/
+7. **WCAG 2.1 Guidelines** — https://www.w3.org/TR/WCAG21/
+8. **Pakistan Personal Data Protection Bill (Draft)** — Ministry of IT & Telecom.
+
+### 1.5 Document Overview
+
+Section 2 sets the system context. Section 3 captures the design-time considerations and risks. Section 4 presents the architectural blueprint. Section 5 dives into module-level design. Sections 6–10 cover cross-cutting concerns (data, interface, security, performance, error handling). Sections 11–12 describe quality assurance and operational lifecycle. Section 13 maps every SRS requirement to a design element, and Section 14 supplies supporting reference material.
+
+---
+
+## 2. System Overview
+
+### 2.1 System Context & Background
+
+Pakistan — and South Asia broadly — is experiencing a **rapid escalation of lifestyle-driven metabolic conditions** including PCOS, insulin resistance, and chronic fatigue. The available digital toolset is misaligned with this reality in three ways:
+
+1. **Calorie counters** (e.g., MyFitnessPal) assume Western foods and rigid macro tracking, failing to recognise items like *biryani*, *daal chawal*, or *paratha*.
+2. **Medical logs** (used by clinicians) are formal, rigid, and unfit for casual daily journaling.
+3. **Educational content** on metabolic health is overwhelmingly Western in framing, ignoring local cuisine, climate, and cultural norms.
+
+**Vitalis** positions itself as the bridge: a **conversational, culturally-localized health companion** that lets users journal in *plain language*, structures that input via NLP, surfaces trends, and pairs the experience with locally relevant guidance.
+
+```mermaid
+graph LR
+    subgraph "External Environment"
+        U["📱 End User<br/>(Mobile App)"]
+        A["🖥️ Admin / Content Manager<br/>(Web Portal)"]
+        NLP["🤖 NLP Provider<br/>(Gemini / OpenAI)"]
+        MAIL["✉️ SMTP / SendGrid"]
+        STORE["☁️ Object Storage<br/>(article images, PDFs)"]
+    end
+
+    subgraph "Vitalis Platform"
+        APP["⚙️ Vitalis Backend<br/>+ Admin Web App"]
+    end
+
+    U -->|HTTPS / JSON| APP
+    A -->|HTTPS| APP
+    APP -->|HTTPS prompts| NLP
+    NLP -->|structured JSON| APP
+    APP --> MAIL
+    APP --> STORE
+
+    style APP fill:#4A90E2,stroke:#2C3E50,color:#fff
+    style NLP fill:#10A37F,stroke:#0E8C6E,color:#fff
+```
+
+### 2.2 Design Goals & Objectives
+
+| Priority | Goal | Driving Requirement |
+|---|---|---|
+| 1 | **Trust & Safety** of health-related output | FR-08–FR-10, NFR-13 |
+| 2 | **Responsiveness** of chat (≤3s) | NFR-01 |
+| 3 | **Privacy** of PHI/PII | NFR-05, NFR-06, NFR-08, NFR-09 |
+| 4 | **Cultural Localization** of NLP entities | FR-08 (implicit) |
+| 5 | **Cross-platform Parity** (iOS + Android) | Proposal |
+| 6 | **Maintainability** via modular boundaries | Implicit |
+| 7 | **Cost Efficiency** (NLP token usage) | Operational |
+| 8 | **Accessibility** (WCAG 2.1 AA) | NFR-14 |
+
+### 2.3 Assumptions & Dependencies
+
+**Assumptions:**
+
+- Users have reliable 3G/4G/5G connectivity for chatbot interaction.
+- The chosen NLP provider maintains its published 99.9% SLA.
+- The user base in v1.0 is concentrated in Pakistan; latency to the nearest cloud region (e.g., `me-south-1` or `asia-south1`) is ≤150 ms.
+- Users consent to health-data collection at first launch (explicit, granular consent screen).
+
+**Dependencies:**
+
+| Dependency | Type | Risk if Unavailable |
+|---|---|---|
+| Gemini API (default) / OpenAI API (fallback) | External SaaS | Chat degraded; manual & shortcut logging still work (NFR-13) |
+| MongoDB Atlas (M10+ for v1.0) | Managed DB | Total outage |
+| Firebase Auth (optional, alternative to in-house JWT) | Managed Auth | Login disabled |
+| Redis (Upstash or ElastiCache) | Cache & rate-limit | Sessions/throttling degrade |
+| SendGrid SMTP | Email | Verification & reset emails blocked |
+| Cloud object storage (S3 / GCS / Firebase Storage) | Media | Article images broken |
+
+### 2.4 Constraints
+
+- **Technical:** Cross-platform mobile (Flutter chosen — see §4.5); backend in Node.js (chosen over Python Flask — see §4.5); NoSQL DB (MongoDB chosen — see §4.5).
+- **Regulatory:** Pakistan PDP Bill (draft) and GDPR-equivalent principles applied for forward compatibility.
+- **Budgetary:** Academic / early-stage budget. Free / low-tier managed services preferred; no dedicated SRE team.
+- **Temporal:** Single-semester (~14–16 weeks) build window; small team (2–4 engineers).
+- **Cultural:** UI copy and NLP examples must respect local food vocabulary and gender norms (PCOS-specific content sensitivities).
+
+---
+
+## 3. Design Considerations
+
+### 3.1 Design Assumptions
+
+| ID | Assumption | Justification |
+|---|---|---|
+| DA-01 | A typical user logs **3–8 entries/day** | Comparable health-journaling apps |
+| DA-02 | Average chat message: **20–40 words** | Casual journaling tone |
+| DA-03 | Read-to-write ratio on log data: **~5:1** | Dashboard re-reads dominate |
+| DA-04 | Peak concurrency v1.0: **≤10,000** (NFR-03) | Stated in SRS |
+| DA-05 | ≥70% of users interact via Android | Pakistan market share |
+| DA-06 | NLP intent confidence ≥80% achievable for English on common foods | Validated on Gemini 1.5 Flash with system prompt tuning |
+
+### 3.2 Design Constraints
+
+1. **Stateless Backend Tier** — to enable horizontal scaling per NFR-03, application servers hold no session-affine state; sessions live in Redis or as JWTs.
+2. **Single Source of Truth** — MongoDB is authoritative for all persisted entities; Redis is a volatile cache only.
+3. **NLP Provider Abstraction** — Gemini and OpenAI are interchangeable behind a `LLMProvider` strategy interface — switch cost must remain low.
+4. **Mobile-First** — backend response envelopes are designed for mobile bandwidth (compact, paginated, optionally delta-encoded).
+5. **Health Data Isolation** — health logs live in a logically separated collection with field-level encryption for sensitive symptom data.
+
+### 3.3 Design Methodology
+
+The team adopts **Agile / Scrum-lite** with **two-week sprints**, justified below:
+
+| Approach | Pros | Cons | Verdict |
+|---|---|---|---|
+| Waterfall | Predictable milestones | Inflexible to NLP iteration | ❌ Rejected |
+| **Scrum-lite (chosen)** | Iterative; demo-driven; lightweight ceremonies | Requires discipline | ✅ **Adopted** |
+| Pure Scrum | Maximum agility | Excess overhead for small team | ❌ Rejected |
+| Kanban | Continuous flow | Poor fit for academic milestone reporting | ❌ Rejected |
+
+Each sprint produces a **vertical slice** (e.g., Sprint 3 = "log a meal end-to-end with NLP and view it in the timeline"), maximising demonstrability.
+
+### 3.4 Risks & Mitigation Strategies
+
+| Risk ID | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| R-01 | NLP misclassifies local foods (e.g., *halwa puri*) | High | Medium | Few-shot prompt with local food list; user can correct (FR-10, FR-11) |
+| R-02 | Users mistake the app for medical advice | Medium | High | Persistent disclaimer; onboarding screen; legal copy reviewed |
+| R-03 | Health-data breach | Low | Critical | TLS 1.3, AES-256 at rest (NFR-05/08), field-level encryption for symptoms, audit logging (NFR-10) |
+| R-04 | NLP cost spike (token overuse) | Medium | Medium | Daily per-user message cap; `max_tokens` ceiling; usage dashboard |
+| R-05 | LLM hallucinations on health questions | High | Medium | Strict system prompt; refuse-to-diagnose policy; intent gating |
+| R-06 | Connectivity loss mid-journaling | High | Low | Offline outbox: queue messages locally, sync on reconnect |
+| R-07 | Gender-sensitive content (PCOS) discomfort | Medium | Medium | Inclusive UX writing; in-app preference toggles |
+| R-08 | Affiliate-link compliance / misleading product claims | Medium | High | Editorial review checklist; disclaimer labels (FR-24) |
+
+---
+
+## 4. Architectural Design
+
+### 4.1 Chosen Architectural Style
+
+After evaluating alternatives, the system adopts a **Layered (N-Tier) Architecture with a Modular Monolith backend**, accessed by a **cross-platform mobile client** and a **web-based admin portal**.
+
+| Style | Suitability | Verdict |
+|---|---|---|
+| Microservices | Premature for 10K-MAU scale; ops cost too high | ❌ Rejected |
+| Serverless (FaaS) | Cold starts conflict with NFR-01 (≤3s); long-lived NLP streams awkward | ⚠️ Used only for scheduled jobs (e.g., trend recompute) |
+| **Modular Monolith (chosen)** | Clear module boundaries; horizontally scalable; small-team friendly | ✅ **Adopted** |
+| Event-Driven / CQRS | No high-throughput event firehose justifies complexity | ❌ Rejected |
+
+The monolith is internally partitioned into modules (Auth, Logging, NLP, Trends, Hub, Products, Admin) with well-defined service interfaces, enabling future extraction if scale demands.
+
+### 4.2 High-Level Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Client Tier"
+        MOB["📱 Vitalis Mobile App<br/>(Flutter — iOS + Android)"]
+        WEB["🖥️ Admin Portal<br/>(React + Vite)"]
+    end
+
+    subgraph "Edge Tier"
+        CDN["☁️ Cloudflare<br/>(DNS, WAF, CDN)"]
+        LB["⚖️ Load Balancer<br/>(NGINX / GCP LB)<br/>TLS 1.3 termination"]
+    end
+
+    subgraph "Application Tier (Stateless, Auto-scaled)"
+        APP1["🟢 Node.js API #1"]
+        APP2["🟢 Node.js API #2"]
+        APPN["🟢 Node.js API #N"]
+    end
+
+    subgraph "Async Workers"
+        WK1["⚙️ Trend Recompute Worker"]
+        WK2["⚙️ PDF Export Worker"]
+        WK3["⚙️ Email/Notification Worker"]
+    end
+
+    subgraph "Cache & Queue Tier"
+        REDIS["🔴 Redis 7<br/>Sessions, Rate-Limits, Caches"]
+        QUEUE["📨 BullMQ Job Queue<br/>(backed by Redis)"]
+    end
+
+    subgraph "Data Tier"
+        MONGO[("🍃 MongoDB Atlas<br/>Replica Set")]
+        S3[("📦 Object Storage<br/>(S3 / GCS)")]
+    end
+
+    subgraph "External Services"
+        GEMINI["🤖 Gemini / OpenAI API"]
+        SG["✉️ SendGrid"]
+        LOG["📊 Datadog / Grafana Loki"]
+    end
+
+    MOB -->|HTTPS| CDN
+    WEB -->|HTTPS| CDN
+    CDN --> LB
+    LB --> APP1
+    LB --> APP2
+    LB --> APPN
+    APP1 <--> REDIS
+    APP1 --> MONGO
+    APP1 --> S3
+    APP1 --> QUEUE
+    APP1 -->|HTTPS| GEMINI
+    APP1 --> SG
+    QUEUE --> WK1
+    QUEUE --> WK2
+    QUEUE --> WK3
+    WK1 --> MONGO
+    WK2 --> S3
+    APP1 -.->|logs/metrics| LOG
+
+    style MOB fill:#02569B,stroke:#013F70,color:#fff
+    style GEMINI fill:#10A37F,stroke:#0E8C6E,color:#fff
+    style MONGO fill:#13AA52,stroke:#0E8442,color:#fff
+    style REDIS fill:#DC382D,stroke:#A82820,color:#fff
+```
+
+### 4.3 Subsystem Decomposition
+
+```mermaid
+graph TB
+    subgraph "Mobile App (Flutter)"
+        UI[UI Layer<br/>Screens & Widgets]
+        BLOC[State Mgmt<br/>BLoC / Riverpod]
+        REPO[Repository Layer]
+        CLIENT[Dio HTTP Client]
+        LOCAL[Local Cache<br/>Hive / SQLite]
+    end
+
+    subgraph "Backend Monolith (Node.js + Express)"
+        ROUTE["🛣️ Routing"]
+        MW["🛡️ Middleware<br/>Auth · Validation · Rate-Limit · Logging"]
+
+        subgraph "Domain Modules"
+            AUTH["🔐 Auth<br/>(FR-01 → FR-06)"]
+            LOG_M["📝 Logging<br/>(FR-07 → FR-13)"]
+            NLP_M["🤖 NLP Orchestration<br/>(FR-08 → FR-10)"]
+            TREND["📊 Trends & Insights<br/>(FR-14 → FR-18)"]
+            HUB["📚 Educational Hub<br/>(FR-19 → FR-23)"]
+            PROD["🛍️ Products<br/>(FR-24 → FR-26)"]
+            ADMIN["👤 Admin<br/>(FR-27 → FR-29)"]
+            NOTIF["✉️ Notifications"]
+        end
+
+        DAL["💾 Data Access Layer<br/>(Mongoose ODM)"]
+    end
+
+    UI --> BLOC --> REPO
+    REPO --> CLIENT
+    REPO --> LOCAL
+    CLIENT -->|REST JSON| ROUTE
+    ROUTE --> MW
+    MW --> AUTH
+    MW --> LOG_M
+    MW --> TREND
+    MW --> HUB
+    MW --> PROD
+    MW --> ADMIN
+    LOG_M --> NLP_M
+    AUTH --> NOTIF
+    AUTH --> DAL
+    LOG_M --> DAL
+    TREND --> DAL
+    HUB --> DAL
+    PROD --> DAL
+    ADMIN --> DAL
+```
+
+| Module | Responsibility | Key Dependencies |
+|---|---|---|
+| **Auth** | Registration, login, JWT issuance, password reset, profile, account deletion | bcrypt, jsonwebtoken, Notification |
+| **Logging** | Persist diet/mood/symptom entries; edit/delete; shortcut parser | DAL, NLP |
+| **NLP Orchestration** | Prompt building, intent classification, entity extraction, confidence gating | Gemini/OpenAI SDK, Redis (cache) |
+| **Trends & Insights** | Aggregations; chart datasets; correlation hints; PDF export | DAL, BullMQ worker |
+| **Educational Hub** | Article listing, full-text search, bookmarks, recommendations | DAL (MongoDB text index) |
+| **Products** | Curated product catalog with external links and personalization | DAL |
+| **Admin** | CMS for articles & products; analytics dashboards | DAL, RBAC middleware |
+| **Notifications** | Transactional emails | Nodemailer + SendGrid |
+| **Cross-cutting** | Pino logging, Prometheus metrics, Joi validation, error normalization | — |
+
+### 4.4 Component Interaction & Data Flow — Canonical "Log a Meal" Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User (Mobile)
+    participant APP as Flutter App
+    participant API as Backend API
+    participant RD as Redis
+    participant NLP as Gemini/OpenAI
+    participant DB as MongoDB
+
+    U->>APP: Types "had aloo paratha and chai for breakfast"
+    APP->>APP: Optimistic render in chat
+    APP->>API: POST /api/v1/logs/chat (JWT)
+    API->>API: Validate JWT + Joi schema
+    API->>RD: Check rate-limit (user)
+    RD-->>API: OK
+    API->>RD: Cache lookup (utterance hash)
+    alt cache hit
+        RD-->>API: cached structured intent
+    else cache miss
+        API->>NLP: prompt + few-shot + utterance
+        NLP-->>API: {intent: food_log, confidence: 0.93, entities: [aloo paratha, chai], meal: breakfast}
+        API->>RD: cache 1h
+    end
+    alt confidence >= 0.80
+        API->>DB: insert LogEntry + FoodEntry
+        API-->>APP: 201 {entry, summary}
+        APP->>U: "✅ Logged: 1 aloo paratha + 1 chai (breakfast)"
+    else low confidence
+        API-->>APP: 200 {needsClarification, suggestions}
+        APP->>U: "I'm unsure — did you mean...?" (FR-10)
+    end
+```
+
+### 4.5 Technology Stack Justification
+
+| Layer | Choice | Rationale | Alternatives Rejected |
+|---|---|---|---|
+| **Mobile Framework** | **Flutter 3.x** | Single codebase for iOS+Android; near-native performance; rich charting (`fl_chart`); strong Pakistani dev community | React Native (slower charts, native module friction) |
+| **State Management** | **Riverpod 2** | Compile-safe, testable, less boilerplate than BLoC | BLoC, Provider, GetX |
+| **Local Storage** | **Hive** + Secure Storage for tokens | Fast NoSQL local store; supports offline outbox | SQLite (heavier for simple kv), shared_prefs (insecure for tokens) |
+| **Backend Runtime** | **Node.js 20 LTS** | Excellent async I/O for NLP streaming; massive ecosystem; aligns with proposal | Python Flask (slower I/O; weaker async) |
+| **Web Framework** | **Express.js 4.x** | Battle-tested; vast middleware | Fastify (smaller ecosystem); NestJS (heavyweight for v1) |
+| **Database** | **MongoDB 7 (Atlas)** | Flexible schemas fit evolving NLP entity shapes; native text indexes for FR-20; geo-replicable | Firebase Firestore (vendor lock-in, complex aggregations); PostgreSQL (rigid schema for nested entities) |
+| **ODM** | **Mongoose 8** | Schema validation; middleware hooks for encryption | Native driver (no schema layer) |
+| **Cache / Queue** | **Redis 7** + **BullMQ** | Sub-ms cache; reliable job queue for trend recompute & PDF | RabbitMQ (heavier ops) |
+| **NLP Provider** | **Gemini 1.5 Flash** (default), **OpenAI GPT-4o-mini** (fallback) | Gemini Flash: cheap, low latency, strong JSON mode; OpenAI: well-known fallback | Self-hosted LLM (cost & ops prohibitive) |
+| **Authentication** | **JWT (RS256) + refresh tokens in Redis** | Stateless; rotation supported | Express-session (server-stateful); Firebase Auth (lock-in) |
+| **Email** | **Nodemailer + SendGrid** | Free tier; SMTP fallback | AWS SES (more setup) |
+| **Charting (mobile)** | **fl_chart** | Native Flutter; supports line, bar, pie | syncfusion_flutter_charts (licensing) |
+| **PDF Generation** | **`pdfkit` (Node)** | Server-side rendering; consistent across devices | Client-side (inconsistent fonts) |
+| **Admin Portal** | **React 18 + Vite + TanStack Query + shadcn/ui** | Fast DX; matches existing skills | Next.js (overkill for internal portal) |
+| **Validation** | **Joi** (backend), **freezed + json_serializable** (mobile) | Strong typing both sides | Manual checks (error-prone) |
+| **Logging** | **Pino** (JSON) | Fastest Node logger | Winston (slower) |
+| **Testing** | **Jest + Supertest + Playwright** (web) **flutter_test + integration_test** (mobile) | Industry standards | — |
+| **Containerization** | **Docker** + **docker-compose** (dev) | Reproducible | Bare metal |
+| **CI/CD** | **GitHub Actions** | Free public-repo tier; native GH integration | CircleCI |
+| **Hosting** | **Render / Railway** (v1), **GCP Cloud Run + Atlas + Cloudflare** (production) | Managed, low-ops | Raw EC2 |
+
+### 4.6 Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Users"
+        USR[📱 Mobile Users<br/>+ 🖥️ Admins]
+    end
+
+    subgraph "Edge — Cloudflare"
+        DNS[DNS + WAF + CDN]
+    end
+
+    subgraph "Cloud Region: asia-south1"
+        subgraph "Public"
+            LB[GCP HTTPS LB<br/>TLS 1.3]
+        end
+
+        subgraph "App Tier"
+            CR1[Cloud Run<br/>API instance]
+            CR2[Cloud Run<br/>API instance]
+            CRN[Cloud Run<br/>auto-scale]
+            WK[Cloud Run Job<br/>BullMQ Workers]
+        end
+
+        subgraph "Data Tier"
+            ATLAS[(MongoDB Atlas<br/>Replica Set)]
+            UPSTASH[(Upstash Redis)]
+            GCS[(GCS Bucket<br/>article images, PDFs)]
+        end
+
+        SM[Secret Manager<br/>API keys, JWT keys]
+        OPS[Cloud Logging<br/>+ Cloud Monitoring]
+    end
+
+    subgraph "Third-Party"
+        GEM[Gemini API]
+        SG[SendGrid]
+    end
+
+    USR --> DNS --> LB
+    LB --> CR1
+    LB --> CR2
+    LB --> CRN
+    CR1 --> ATLAS
+    CR1 --> UPSTASH
+    CR1 --> GCS
+    CR1 -.->|secrets| SM
+    CR1 -->|HTTPS| GEM
+    CR1 --> SG
+    WK --> ATLAS
+    WK --> GCS
+    CR1 -.->|logs| OPS
+```
+
+---
+
+## 5. Detailed Design
+
+### 5.1 Module-by-Module Breakdown
+
+#### 5.1.1 Auth Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Manage user identity, credentials, sessions |
+| **Satisfies** | FR-01 → FR-06 |
+| **Key Classes** | `AuthController`, `AuthService`, `UserRepository`, `PasswordHasher`, `TokenService`, `EmailVerifier`, `AccountDeletionService` |
+| **Dependencies** | bcrypt, jsonwebtoken, crypto, Notification, Redis |
+
+**Key algorithms:**
+
+- **Password hashing:** bcrypt cost **12** (above NFR-06 minimum) → ~250 ms per hash.
+- **Email verification token:** `crypto.randomBytes(32).toString('hex')`; only SHA-256 hash persisted; 24-hour expiry.
+- **Password reset token:** Same primitive; 30-minute expiry; single-use (revoked on first use).
+- **Account deletion (FR-06):** Two-phase — immediate logical deletion (soft delete + token revocation), background hard purge after 30-day grace window. Anonymized analytics survive purge (`userId` replaced with deterministic hash).
+
+**JWT structure:**
+
+```jsonc
+{
+  "sub": "usr_8a2c",
+  "role": "user",
+  "iat": 1730000000,
+  "exp": 1730000900,
+  "jti": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 5.1.2 Logging Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Ingest, persist, edit, and present daily diet/mood/symptom entries |
+| **Satisfies** | FR-07 → FR-13 |
+| **Key Classes** | `LoggingController`, `LoggingService`, `LogEntryRepository`, `ShortcutParser`, `DailyTimelineBuilder` |
+| **Dependencies** | NLP Module, DAL |
+
+**Shortcut Parser Grammar (FR-12):**
+
+```
+shortcut    := "/" command SP args
+command     := "mood" | "ate" | "drank" | "felt" | "sym"
+args        := free_text
+examples    := "/mood tired", "/ate biryani", "/sym headache mild"
+```
+
+The parser intercepts the message *before* the NLP path — shortcuts bypass the LLM entirely, reducing cost and latency for power users.
+
+**Daily Timeline (FR-13):**
+
+```pseudo
+function getDailyTimeline(userId, date):
+    entries = LogEntries.find({userId, date}).sort({timestamp:1})
+    return groupBy(entries, entry => bucket(entry.timestamp))
+      // buckets: morning (5-11), afternoon (12-16), evening (17-20), night (21-4)
+```
+
+#### 5.1.3 NLP Orchestration Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Translate free-text into structured intent + entities with confidence |
+| **Satisfies** | FR-08, FR-09, FR-10 |
+| **Key Classes** | `LLMProvider` (interface), `GeminiProvider`, `OpenAIProvider`, `PromptBuilder`, `IntentClassifier`, `EntityExtractor`, `ConfidenceGate`, `LocalFoodDictionary` |
+| **Design Patterns** | **Strategy** (provider) + **Decorator** (cache, retry) + **Chain of Responsibility** (shortcut → cache → LLM) |
+
+**Prompt template (excerpt):**
+
+```text
+You are Vitalis, a health-journaling NLP engine. Classify the user's message into one of:
+  ["food_log", "symptom_log", "mood_log", "general_query"].
+Extract relevant entities. Be culturally aware of South Asian (Pakistani) foods.
+Output STRICT JSON of the schema below — no prose.
+
+Schema:
+{
+  "intent": "food_log" | "symptom_log" | "mood_log" | "general_query",
+  "confidence": 0.0-1.0,
+  "entities": { ... type-dependent ... },
+  "meal": "breakfast"|"lunch"|"dinner"|"snack" | null
+}
+
+Few-shot examples:
+USER: "had aloo paratha and chai for breakfast"
+ASSISTANT: {"intent":"food_log","confidence":0.95,"entities":{"foods":[{"name":"aloo paratha","qty":1},{"name":"chai","qty":1}]},"meal":"breakfast"}
+
+USER: "feeling super tired today, head hurts"
+ASSISTANT: {"intent":"symptom_log","confidence":0.88,"entities":{"symptoms":[{"name":"fatigue","severity":"high"},{"name":"headache","severity":"mild"}]},"meal":null}
+
+Now classify:
+USER: "{{user_message}}"
+ASSISTANT:
+```
+
+**Confidence Gate (FR-09 / FR-10):**
+
+```typescript
+if (result.confidence >= 0.80) {
+  await logRepo.insertStructured(result);
+  return { status: 'logged', summary: buildSummary(result) };
+} else {
+  const suggestions = await suggestAlternatives(message, result);
+  return { status: 'needs_clarification', suggestions };
+}
+```
+
+**Caching:** Utterance SHA-256 → cached structured result (Redis, TTL 1h). Cache hit rate target: **≥30%** for common phrasings (e.g., *"had chai"*).
+
+**Retry policy:** Exponential backoff with jitter on 429/5xx — `delay = min(2^attempt × 500 + jitter(0..500), 8000ms)`, max 3 attempts. After exhaustion, the gate falls back to **rule-based extraction** (NFR-13) — keyword spotter using the Local Food Dictionary.
+
+#### 5.1.4 Trends & Insights Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Aggregate logs into dashboards & generate insights |
+| **Satisfies** | FR-14 → FR-18 |
+| **Key Classes** | `TrendsController`, `TrendsService`, `AggregationPipeline`, `CorrelationAnalyzer`, `ChartDatasetBuilder`, `PdfExporter` |
+
+**Aggregation strategy:** MongoDB aggregation pipelines (`$match`, `$group`, `$bucket`) generate datasets server-side. For frequent ranges (7d, 30d, 90d), nightly **pre-aggregated rollups** are computed by a BullMQ worker and cached in a `trend_rollups` collection — making dashboard loads ≤200 ms.
+
+**Correlation Hint Algorithm (FR-18):** A simple Pearson-like co-occurrence heuristic — for each (food, symptom) pair, count days where both occurred within an 8-hour window vs. baseline. Flag pairs with co-occurrence ≥ 60% and support ≥ 5 days. *Crucially, every hint is shown with a "this is a pattern, not medical advice" disclaimer.*
+
+**PDF Export (FR-17):** Offloaded to BullMQ worker; rendered via `pdfkit` with `chart.js-node-canvas` for embedded chart images; signed URL returned to client when ready.
+
+#### 5.1.5 Educational Hub Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Browse, search, read, bookmark, and recommend articles |
+| **Satisfies** | FR-19 → FR-23 |
+| **Key Classes** | `HubController`, `ArticleRepository`, `SearchService`, `BookmarkService`, `RecommendationService` |
+
+**Search (FR-20):** MongoDB text index on `articles.{title, body, tags}` with weighted ranking (title × 10, tags × 5, body × 1).
+
+**Recommendation (FR-23):** Lightweight content-based filter — derive a user's *health-interest vector* from logged symptoms over last 30 days; cosine-similar it against article tag vectors. No collaborative filtering in v1.0 (data sparsity).
+
+#### 5.1.6 Products Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Display curated wellness products (affiliate links, **no in-app purchase**) |
+| **Satisfies** | FR-24, FR-25, FR-26 |
+| **Notes** | All outbound links open in OS browser with explicit "leaving Vitalis" interstitial. Affiliate parameters appended server-side. |
+
+#### 5.1.7 Admin Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Web-based portal for content & product management |
+| **Satisfies** | FR-27, FR-28, FR-29 |
+| **Authorization** | Requires `role: 'admin'` claim; enforced by `requireRole('admin')` middleware (NFR-09) |
+| **Tech** | React + Vite + TanStack Query + shadcn/ui |
+| **Analytics (FR-29)** | Anonymized counters: DAU, total logs, NLP success rate, top searched terms, top bookmarked articles. **No PII.** |
+
+#### 5.1.8 Notifications Module
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Transactional email + (future) push |
+| **Templates** | MJML-compiled HTML |
+| **Delivery** | Async via BullMQ → SendGrid |
+
+### 5.2 Domain Class Diagram
+
+```mermaid
+classDiagram
+    class User {
+        +ObjectId id
+        +string email
+        +string passwordHash
+        +string name
+        +int age
+        +Sex sex
+        +string[] healthGoals
+        +Role role
+        +bool isActive
+        +bool isEmailVerified
+        +Date createdAt
+        +verifyPassword(plain) bool
+        +softDelete() void
+    }
+
+    class LogEntry {
+        +ObjectId id
+        +ObjectId userId
+        +LogType type
+        +string rawText
+        +float nlpConfidence
+        +Date timestamp
+        +bool isEdited
+        +manualEdit(newData) void
+    }
+
+    class FoodEntry {
+        +ObjectId logEntryId
+        +string name
+        +int qty
+        +MealSlot meal
+    }
+
+    class MoodRecord {
+        +ObjectId logEntryId
+        +string mood
+        +int intensity
+    }
+
+    class SymptomRecord {
+        +ObjectId logEntryId
+        +string name
+        +Severity severity
+        +int durationMin
+    }
+
+    class Article {
+        +ObjectId id
+        +string title
+        +string slug
+        +string body
+        +string[] tags
+        +string category
+        +string heroImageUrl
+        +Date publishedAt
+    }
+
+    class Bookmark {
+        +ObjectId userId
+        +ObjectId articleId
+        +Date createdAt
+    }
+
+    class Product {
+        +ObjectId id
+        +string name
+        +string description
+        +string category
+        +string externalUrl
+        +string imageUrl
+        +string[] tags
+    }
+
+    class TrendRollup {
+        +ObjectId userId
+        +string rangeKey
+        +json aggregates
+        +Date computedAt
+    }
+
+    class AuditLog {
+        +ObjectId id
+        +ObjectId actorId
+        +string action
+        +json metadata
+        +Date createdAt
+    }
+
+    User "1" --> "0..*" LogEntry
+    LogEntry "1" --> "0..1" FoodEntry
+    LogEntry "1" --> "0..1" MoodRecord
+    LogEntry "1" --> "0..1" SymptomRecord
+    User "1" --> "0..*" Bookmark
+    Bookmark "*" --> "1" Article
+    User "1" --> "0..*" TrendRollup
+    User "1" --> "0..*" AuditLog
+
+    class LogType {
+        <<enum>>
+        FOOD
+        MOOD
+        SYMPTOM
+        GENERAL
+    }
+    class Role {
+        <<enum>>
+        USER
+        ADMIN
+    }
+    class Severity {
+        <<enum>>
+        MILD
+        MODERATE
+        SEVERE
+    }
+```
+
+### 5.3 Sequence Diagrams for Key Use Cases
+
+#### 5.3.1 Registration & Email Verification
+
+```mermaid
+sequenceDiagram
+    participant V as Visitor
+    participant APP as Flutter App
+    participant API as Backend
+    participant DB as MongoDB
+    participant MAIL as SendGrid
+
+    V->>APP: Fill registration form
+    APP->>APP: Client-side validation (Joi/freezed)
+    APP->>API: POST /auth/register
+    API->>API: Joi validate
+    API->>DB: find user by email
+    DB-->>API: not found
+    API->>API: bcrypt(password, 12)
+    API->>API: generate verify token
+    API->>DB: insert user (isActive=false)
+    API->>MAIL: send verification email
+    API-->>APP: 201 "Check your email"
+    V->>API: GET /auth/verify?token=...
+    API->>DB: lookup hashed token
+    API->>DB: update user.isActive=true
+    API-->>V: Redirect (deep-link → app login)
+```
+
+#### 5.3.2 Low-Confidence NLP Fallback (FR-10)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant APP as Flutter App
+    participant API as Backend
+    participant NLP as Gemini
+
+    U->>APP: "had that thing with rice"
+    APP->>API: POST /logs/chat
+    API->>NLP: classify
+    NLP-->>API: {confidence: 0.42, intent: food_log}
+    API-->>APP: 200 {needsClarification, suggestions:[<br/>"chicken biryani?", "daal chawal?", "rice + curry?"]}
+    APP->>U: Show clarification chips
+    U->>APP: Tap "daal chawal"
+    APP->>API: POST /logs/chat {clarified:"daal chawal"}
+    API->>NLP: re-classify
+    NLP-->>API: {confidence: 0.96}
+    API-->>APP: 201 logged
+```
+
+#### 5.3.3 Export Dashboard PDF (FR-17)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant APP as App
+    participant API as Backend
+    participant Q as BullMQ
+    participant W as PDF Worker
+    participant S3 as GCS
+
+    U->>APP: Tap "Export PDF (last 30 days)"
+    APP->>API: POST /trends/export {range:"30d"}
+    API->>Q: enqueue ExportPdfJob
+    API-->>APP: 202 {jobId}
+    APP->>API: poll GET /jobs/{jobId}
+    Q->>W: dispatch job
+    W->>API: fetch aggregated data
+    W->>W: render PDF with charts
+    W->>S3: upload PDF
+    W->>API: jobDone(signedUrl)
+    API-->>APP: 200 {status:"done", downloadUrl}
+    APP->>U: Open / share PDF
+```
+
+### 5.4 State Diagrams
+
+#### 5.4.1 LogEntry State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft : User types text
+    Draft --> Processing : Submit to NLP
+    Processing --> Confirmed : confidence ≥ 0.80
+    Processing --> Clarifying : confidence < 0.80
+    Clarifying --> Processing : User clarifies
+    Clarifying --> Cancelled : User dismisses
+    Confirmed --> Edited : User edits (FR-11)
+    Confirmed --> Deleted : User deletes
+    Edited --> Confirmed : Save
+    Deleted --> [*]
+    Cancelled --> [*]
+```
+
+#### 5.4.2 Account Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : Register
+    Pending --> Active : Email verified
+    Pending --> Expired : >24h unverified
+    Active --> SoftDeleted : User requests delete (FR-06)
+    SoftDeleted --> HardDeleted : 30-day grace expires
+    SoftDeleted --> Active : User reactivates (within grace)
+    HardDeleted --> [*]
+```
+
+### 5.5 Activity Diagrams
+
+#### 5.5.1 NLP Chat Logging Activity
+
+```mermaid
+flowchart TD
+    Start([User submits message]) --> ShortcutQ{Starts with "/" ?}
+    ShortcutQ -->|Yes| ShortcutParse[Shortcut Parser]
+    ShortcutParse --> SaveStruct[Persist structured entry]
+    SaveStruct --> Confirm[Display confirmation]
+    ShortcutQ -->|No| Cache{Cached?}
+    Cache -->|Yes| Confidence{Confidence ≥ 0.80?}
+    Cache -->|No| CallNLP[Call Gemini/OpenAI]
+    CallNLP --> Confidence
+    Confidence -->|Yes| SaveStruct
+    Confidence -->|No| Suggest[Suggest interpretations]
+    Suggest --> WaitUser{User<br/>clarifies?}
+    WaitUser -->|Yes| CallNLP
+    WaitUser -->|No| Cancelled([End — not logged])
+    CallNLP -.->|API error| Fallback[Rule-based extractor<br/>NFR-13]
+    Fallback --> Confidence
+    Confirm --> End([End])
+```
+
+#### 5.5.2 Trend Dashboard Load
+
+```mermaid
+flowchart TD
+    A([User opens Dashboard]) --> B{Date range<br/>= 7d/30d/90d?}
+    B -->|Yes| C[Read trend_rollup<br/>from cache]
+    B -->|No| D[Run live aggregation pipeline]
+    C --> E[Build chart datasets]
+    D --> E
+    E --> F[Compute correlation hints]
+    F --> G[Return payload]
+    G --> H([Render charts])
+```
+
+---
+
+## 6. Data Design
+
+### 6.1 Conceptual Data Model
+
+```mermaid
+erDiagram
+    USER ||--o{ LOG_ENTRY : "owns"
+    LOG_ENTRY ||--o| FOOD_ENTRY : "food details"
+    LOG_ENTRY ||--o| MOOD_RECORD : "mood details"
+    LOG_ENTRY ||--o| SYMPTOM_RECORD : "symptom details"
+    USER ||--o{ BOOKMARK : "saves"
+    BOOKMARK }o--|| ARTICLE : "ref"
+    USER ||--o{ TREND_ROLLUP : "has"
+    USER ||--o{ AUDIT_LOG : "performs"
+    USER ||--o{ EMAIL_TOKEN : "requests"
+    ADMIN ||--o{ ARTICLE : "authors"
+    ADMIN ||--o{ PRODUCT : "curates"
+
+    USER {
+        ObjectId _id
+        string email UK
+        string passwordHash
+        string name
+        int age
+        string sex
+        string[] healthGoals
+        string role
+        bool isActive
+        bool isEmailVerified
+    }
+    LOG_ENTRY {
+        ObjectId _id
+        ObjectId userId
+        string type
+        string rawText
+        float nlpConfidence
+        Date timestamp
+    }
+    ARTICLE {
+        ObjectId _id
+        string title
+        string slug
+        string body
+        string[] tags
+        string category
+    }
+    PRODUCT {
+        ObjectId _id
+        string name
+        string externalUrl
+        string category
+    }
+```
+
+### 6.2 Logical Schema (MongoDB Collections)
+
+```javascript
+// users
+{
+  _id: ObjectId,
+  email: { type: String, unique: true, index: true, lowercase: true },
+  passwordHash: String,              // bcrypt cost 12
+  name: String,
+  age: Number,
+  sex: { type: String, enum: ['female','male','other','prefer_not_say'] },
+  healthGoals: [String],             // e.g., ['manage_pcos','improve_energy']
+  role: { type: String, enum: ['user','admin'], default: 'user' },
+  isActive: { type: Boolean, default: false },
+  isEmailVerified: { type: Boolean, default: false },
+  consent: { health: Boolean, marketing: Boolean, acceptedAt: Date },
+  createdAt: Date, updatedAt: Date,
+  deletedAt: Date                    // soft-delete tombstone
+}
+
+// log_entries — partitioned conceptually by userId + day
+{
+  _id: ObjectId,
+  userId: { type: ObjectId, ref: 'User', index: true },
+  type: { type: String, enum: ['food','mood','symptom','general'], index: true },
+  rawText: String,
+  nlpConfidence: Number,
+  food: { foods: [{ name: String, qty: Number, meal: String }] },     // when type=food
+  mood: { mood: String, intensity: Number },                          // when type=mood
+  symptom: { name: String, severity: String, durationMin: Number },   // encrypted at field-level
+  timestamp: { type: Date, index: true },
+  isEdited: { type: Boolean, default: false }
+}
+// Compound indexes:
+//   { userId: 1, timestamp: -1 }        — daily timeline (FR-13)
+//   { userId: 1, type: 1, timestamp: -1 } — trend aggregations (FR-14)
+
+// articles
+{
+  _id: ObjectId,
+  title: String, slug: { type: String, unique: true },
+  body: String, tags: [String],
+  category: { type: String, index: true },
+  heroImageUrl: String,
+  authorId: ObjectId,
+  publishedAt: Date,
+  status: { type: String, enum: ['draft','published','archived'] }
+}
+// Text index for FR-20:
+db.articles.createIndex({ title:'text', body:'text', tags:'text' },
+                       { weights: { title: 10, tags: 5, body: 1 } });
+
+// bookmarks
+{ _id: ObjectId, userId: ObjectId, articleId: ObjectId, createdAt: Date }
+// Compound unique: { userId: 1, articleId: 1 }
+
+// products
+{
+  _id: ObjectId,
+  name: String, description: String,
+  category: { type: String, index: true },
+  externalUrl: String,                // affiliate link
+  imageUrl: String,
+  tags: [String],
+  isActive: Boolean
+}
+
+// trend_rollups
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  rangeKey: { type: String, index: true }, // '7d','30d','90d'
+  aggregates: Object,                       // pre-computed JSON for charts
+  correlationHints: [Object],
+  computedAt: Date
+}
+// TTL: rollups regenerated nightly; older than 2 days auto-expire.
+
+// audit_logs
+{
+  _id: ObjectId,
+  actorId: ObjectId,
+  action: String,
+  metadata: Object,
+  createdAt: Date
+}
+// TTL index: createdAt + 90d (NFR-10)
+
+// email_tokens
+{
+  _id: ObjectId, userId: ObjectId,
+  purpose: { type: String, enum: ['verify','reset'] },
+  tokenHash: { type: String, unique: true },  // SHA-256, raw never stored
+  expiresAt: Date,
+  used: { type: Boolean, default: false }
+}
+```
+
+### 6.3 Physical Storage Considerations
+
+- **Database:** MongoDB Atlas — minimum **M10 (replica set)** in v1.0; upgrade to **M30 with sharded cluster** when active users exceed ~50K.
+- **Sharding Key (future):** `{ userId: 'hashed' }` — distributes load evenly while keeping each user's data co-located.
+- **Field-Level Encryption (FLE):** `log_entries.symptom`, `users.healthGoals` encrypted with MongoDB Client-Side Field-Level Encryption (CSFLE) using a Customer Master Key in GCP KMS — protects PHI even from DB administrators.
+- **Object Storage:** GCS bucket with object-level ACLs and signed URLs for PDF exports (5-min TTL).
+
+### 6.4 Data Dictionary (Excerpt)
+
+| Collection | Field | Type | Constraints | Notes |
+|---|---|---|---|---|
+| users | email | String | unique, lowercase | RFC 5322 validated |
+| users | passwordHash | String(60) | not null | bcrypt cost 12 |
+| users | healthGoals | String[] | enum-tagged | encrypted at field level |
+| log_entries | type | enum | indexed | gates which sub-document is populated |
+| log_entries | nlpConfidence | Number(0–1) | optional | null for shortcut/manual entries |
+| log_entries | symptom | Object | encrypted | PHI |
+| articles | body | String | text-indexed | weighted 1 |
+| trend_rollups | rangeKey | String | indexed | e.g., '30d' |
+| email_tokens | tokenHash | String(64) | unique | raw token never stored |
+
+### 6.5 Data Migration & Seeding Strategy
+
+- **Migrations:** Managed by **`migrate-mongo`** with versioned scripts checked into Git; `up`/`down` symmetry mandatory.
+- **Seeds:** Two profiles — `dev` (50 users, 2 000 log entries across 30 days, 20 articles, 30 products) and `prod` (one bootstrap admin from env vars; empty content).
+- **Pre-Deploy:** `npm run migrate` runs in CI; deploy aborts on migration failure.
+
+### 6.6 Backup & Recovery Approach
+
+| Aspect | Specification | Driving Requirement |
+|---|---|---|
+| **Backup Frequency** | Continuous oplog backup (Atlas Cloud Backup) + nightly snapshots | NFR-12 |
+| **Retention** | 7 daily, 4 weekly, 12 monthly | Operational practice |
+| **Storage** | Atlas-managed, geo-redundant | Disaster recovery |
+| **RPO** | ≤ 5 minutes (oplog-based) | NFR-12 (better than 1h target) |
+| **RTO** | ≤ 1 hour | NFR-12 |
+| **Verification** | Quarterly restore-to-staging drill | Validates RTO |
+
+---
+
+## 7. Interface Design
+
+### 7.1 User Interface Design
+
+#### 7.1.1 Mobile Information Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Vitalis Mobile App                       │
+├──────────────┬──────────────┬───────────────┬──────────────┤
+│   Public     │   Authed     │   Authed       │   Authed     │
+├──────────────┼──────────────┼───────────────┼──────────────┤
+│ • Splash     │ Tab: Chat    │ Tab: Trends    │ Tab: Hub     │
+│ • Onboarding │  - Chat log  │  - Dashboard   │  - Browse    │
+│ • Register   │  - Timeline  │  - Filters     │  - Search    │
+│ • Login      │              │  - Export PDF  │  - Bookmarks │
+│ • Verify     │              │                │ Tab: Shop    │
+│ • Forgot     │              │                │ Tab: Profile │
+└──────────────┴──────────────┴───────────────┴──────────────┘
+```
+
+#### 7.1.2 Chat Screen Wireframe (Description)
+
+```
+┌────────────────────────────────────┐
+│ ← Vitalis            🔔  👤        │ Header
+├────────────────────────────────────┤
+│  ┌────────────────────────────┐    │
+│  │ You: had aloo paratha &    │    │
+│  │ chai for breakfast    9:14 │    │ User bubble (right)
+│  └────────────────────────────┘    │
+│  ┌────────────────────────────┐    │
+│  │ ✅ Logged: 1 aloo paratha,│    │
+│  │    1 chai (breakfast) 9:14 │    │ Bot bubble (left)
+│  │    [Edit] [Delete]          │    │
+│  └────────────────────────────┘    │
+│  ─── Afternoon ───                  │ Timeline divider
+│  ...                                │
+├────────────────────────────────────┤
+│ ⚠ Not medical advice                │ Persistent disclaimer
+├────────────────────────────────────┤
+│ [+] Type your log…           [➤]   │ Input bar
+└────────────────────────────────────┘
+│  Chat | Trends | Hub | Shop | You  │ Bottom nav
+└────────────────────────────────────┘
+```
+
+#### 7.1.3 Accessibility (NFR-14)
+
+| Requirement | Implementation |
+|---|---|
+| Color contrast ≥ 4.5:1 | Material 3 tokens audited via Flutter `Semantics` |
+| Screen reader support | `Semantics` widgets on every interactive element; messages announced |
+| Dynamic type | Respect OS text-scale up to 200% without overflow |
+| Keyboard navigation | External keyboard support on tablets |
+| Reduced motion | Honor `MediaQuery.disableAnimations` |
+| Touch targets | ≥48 dp |
+
+#### 7.1.4 Onboarding (NFR-16)
+
+Three-screen flow, target **<3 minutes**:
+
+1. **Welcome + Consent** (health-data consent toggle, mandatory).
+2. **Profile basics** (name, age, sex, goals — all optional except consent).
+3. **First chat tutorial** (suggested first message: "had chai for breakfast").
+
+### 7.2 API Design
+
+The system exposes a **RESTful JSON API** versioned under `/api/v1/`. Auth via `Authorization: Bearer <jwt>`. Errors follow [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807).
+
+#### 7.2.1 Endpoint Catalog
+
+| Method | Path | Auth | Purpose | Maps to FR |
+|---|---|---|---|---|
+| `POST` | `/auth/register` | — | Create account | FR-01, FR-02 |
+| `GET`  | `/auth/verify` | — | Verify email | FR-02 |
+| `POST` | `/auth/login` | — | Issue token pair | FR-03 |
+| `POST` | `/auth/refresh` | refresh | Renew access token | FR-03 |
+| `POST` | `/auth/password-reset` | — | Initiate reset | FR-04 |
+| `POST` | `/auth/password-reset/confirm` | — | Complete reset | FR-04 |
+| `GET`  | `/me` | ✅ | Profile | FR-05 |
+| `PATCH`| `/me` | ✅ | Update profile | FR-05 |
+| `DELETE`| `/me` | ✅ | Delete account | FR-06 |
+| `POST` | `/logs/chat` | ✅ | NLP-driven log | FR-07–FR-10 |
+| `POST` | `/logs/shortcut` | ✅ | Shortcut log | FR-12 |
+| `GET`  | `/logs?date=` | ✅ | Daily timeline | FR-13 |
+| `PATCH`| `/logs/:id` | ✅ | Edit entry | FR-11 |
+| `DELETE`| `/logs/:id` | ✅ | Delete entry | FR-11 |
+| `GET`  | `/trends?range=&from=&to=` | ✅ | Dashboard data | FR-14, FR-15, FR-16 |
+| `POST` | `/trends/export` | ✅ | Enqueue PDF | FR-17 |
+| `GET`  | `/trends/correlations` | ✅ | Habit ↔ symptom hints | FR-18 |
+| `GET`  | `/hub/articles?category=` | ✅ | List articles | FR-19 |
+| `GET`  | `/hub/articles/search?q=` | ✅ | Search | FR-20 |
+| `GET`  | `/hub/articles/:slug` | ✅ | Read article | FR-21 |
+| `POST` | `/hub/bookmarks/:id` | ✅ | Bookmark | FR-22 |
+| `GET`  | `/hub/recommendations` | ✅ | Personalised feed | FR-23 |
+| `GET`  | `/products?category=` | ✅ | Catalog | FR-24, FR-25 |
+| `GET`  | `/products/recommendations` | ✅ | Personalised | FR-26 |
+| `GET`  | `/admin/articles` | admin | List/manage | FR-27 |
+| `POST` | `/admin/articles` | admin | Create | FR-27 |
+| `PATCH`| `/admin/articles/:id` | admin | Update | FR-27 |
+| `GET`  | `/admin/products` | admin | Manage | FR-28 |
+| `GET`  | `/admin/analytics` | admin | Anonymized analytics | FR-29 |
+
+#### 7.2.2 Sample Payloads
+
+**NLP Chat Log — request/response:**
+
+```http
+POST /api/v1/logs/chat
+Authorization: Bearer eyJhbGc...
+Content-Type: application/json
+
+{ "message": "had aloo paratha and chai for breakfast" }
+```
+
+```jsonc
+// 201 Created
+{
+  "status": "logged",
+  "entry": {
+    "id": "65f3a2...",
+    "type": "food",
+    "food": { "foods": [
+      { "name": "aloo paratha", "qty": 1, "meal": "breakfast" },
+      { "name": "chai", "qty": 1, "meal": "breakfast" }
+    ]},
+    "nlpConfidence": 0.93,
+    "timestamp": "2025-10-21T03:14:00Z"
+  },
+  "summary": "Logged 1 aloo paratha + 1 chai for breakfast 🌅"
+}
+```
+
+```jsonc
+// 200 OK — low confidence
+{
+  "status": "needs_clarification",
+  "suggestions": [
+    "Did you mean: chicken biryani?",
+    "Did you mean: daal chawal?",
+    "Did you mean: plain rice with curry?"
+  ]
+}
+```
+
+**Trends Response (excerpt):**
+
+```jsonc
+{
+  "range": "30d",
+  "foodCategories": { "carbs": 42, "protein": 25, "vegetables": 18, "sweets": 15 },
+  "moodDistribution": { "energetic": 8, "okay": 14, "tired": 11, "anxious": 4 },
+  "symptomFrequency": [
+    { "name": "headache", "count": 7 },
+    { "name": "bloating", "count": 5 }
+  ],
+  "correlationHints": [
+    { "left": "sweets", "right": "fatigue", "cooccurrence": 0.71, "supportDays": 9,
+      "disclaimer": "This is a pattern in your data, not medical advice." }
+  ]
+}
+```
+
+**Standard Error:**
+
+```json
+{
+  "type": "https://api.vitalis.app/errors/nlp-unavailable",
+  "title": "NLP temporarily unavailable",
+  "status": 503,
+  "detail": "Falling back to rule-based extraction. Some entries may need review.",
+  "requestId": "req_018ab9c2"
+}
+```
+
+### 7.3 External System Interfaces
+
+| System | Protocol | Endpoint | Auth | Purpose |
+|---|---|---|---|---|
+| Gemini API | HTTPS | `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent` | API key (Secret Manager) | NLP classification & extraction |
+| OpenAI API (fallback) | HTTPS | `https://api.openai.com/v1/chat/completions` | API key | NLP fallback |
+| SendGrid | HTTPS / SMTP | `api.sendgrid.com/v3/mail/send` | API key | Transactional email |
+| Cloudflare | HTTPS | DNS + WAF | Account token | Edge security |
+| GCS / S3 | HTTPS | object endpoint | service account | Article media, PDF exports |
+
+### 7.4 Hardware Interfaces
+
+- Standard mobile hardware: touchscreen, optional keyboard, **biometric sensor** (Face ID / Touch ID / fingerprint) for app re-authentication after 15 min idle.
+- **No** wearable, BLE, or sensor integration in v1.0.
+
+---
+
+## 8. Security & Privacy Design
+
+### 8.1 Authentication & Authorization
+
+**Authentication:** JWT with refresh-token rotation (NFR-07).
+
+| Token | Algorithm | TTL | Client Storage | Server Storage |
+|---|---|---|---|---|
+| Access Token | RS256 | 15 min | Secure Storage (iOS Keychain / Android Keystore) | None |
+| Refresh Token | RS256 | 7 days | Secure Storage | Hashed `jti` in Redis |
+
+**Refresh rotation** — each `/auth/refresh` issues a new refresh token and revokes the prior one. Detected reuse → entire chain revoked → forced re-login.
+
+**Authorization:** **RBAC** with two roles (`user`, `admin`) enforced by Express middleware (NFR-09):
+
+```javascript
+const requireRole = (role) => (req, res, next) =>
+  req.user?.role === role ? next() : res.status(403).json({ error: 'Forbidden' });
+
+router.get('/admin/articles', authenticate, requireRole('admin'), AdminController.listArticles);
+```
+
+### 8.2 Data Encryption
+
+| Data | At Rest | In Transit |
+|---|---|---|
+| User credentials | bcrypt cost 12 (NFR-06) | TLS 1.3 (NFR-05) |
+| MongoDB | Atlas-managed AES-256 (NFR-08) | TLS 1.3 |
+| Sensitive fields (symptoms, healthGoals) | **CSFLE** with GCP KMS Customer Master Key | TLS 1.3 |
+| Object storage | GCS server-side encryption + signed URLs | HTTPS |
+| Secrets (API keys, JWT private key) | GCP Secret Manager (KMS-encrypted) | TLS |
+| Logs | Encrypted log group | TLS |
+| Mobile local storage | iOS Keychain / Android EncryptedSharedPreferences | — |
+
+### 8.3 Input Validation & Sanitization
+
+Every endpoint declares a **Joi schema** validated by `validate(schema)` middleware. Mobile-side validation mirrored via `freezed` models — server is always the source of truth.
+
+```javascript
+const chatLogSchema = Joi.object({
+  message: Joi.string().trim().min(1).max(1000).required()
+});
+```
+
+Article rendering uses **DOMPurify**-sanitised Markdown → HTML; the mobile client renders via `flutter_markdown` with a strict allowlist.
+
+### 8.4 OWASP Mobile Top 10 (2024) Mitigation
+
+| Risk | Mitigation |
+|---|---|
+| **M1 Improper Credential Usage** | Tokens only in Secure Storage; never in shared_prefs/UserDefaults |
+| **M2 Inadequate Supply Chain** | `flutter pub outdated`, `npm audit`, Renovate Bot weekly |
+| **M3 Insecure Authentication** | JWT + biometric step-up after 15-min idle |
+| **M4 Insufficient Input/Output Validation** | Joi server-side + freezed client-side |
+| **M5 Insecure Communication** | TLS 1.3, certificate pinning on mobile (Dio interceptor) |
+| **M6 Inadequate Privacy Controls** | Explicit health-data consent; export & delete endpoints (FR-06) |
+| **M7 Insufficient Binary Protections** | R8/ProGuard (Android) + bitcode (iOS); Flutter obfuscation `--obfuscate --split-debug-info` |
+| **M8 Security Misconfiguration** | `helmet` on backend; secure defaults; CI policy-as-code |
+| **M9 Insecure Data Storage** | CSFLE for PHI; local Hive boxes encrypted with key from Secure Storage |
+| **M10 Insufficient Cryptography** | bcrypt 12, RS256 JWT, AES-256, TLS 1.3 |
+
+### 8.5 Audit Logging (NFR-10)
+
+The `audit_logs` collection captures privileged & sensitive events, retained **90 days** via TTL index:
+
+| Action | Actor | Metadata |
+|---|---|---|
+| `USER_REGISTERED` | self | `{ ipHash }` |
+| `LOGIN_SUCCESS` / `LOGIN_FAILURE` | self / — | `{ ipHash, ua }` |
+| `ACCOUNT_DELETION_REQUESTED` | self | `{ reason? }` |
+| `ADMIN_ARTICLE_PUBLISHED` | admin | `{ articleId }` |
+| `NLP_PROVIDER_FALLBACK` | system | `{ from, to, errorCode }` |
+
+Logs are append-only from the app (no `update`/`delete` exposed) and shipped to Cloud Logging for tamper resistance.
+
+### 8.6 Privacy & Compliance
+
+- **Consent Management:** Granular consent screen at first launch (health-data, marketing). Revocable at any time in Profile → Privacy.
+- **Right to Access:** `GET /me/export` returns a JSON archive of all user data within 30 days.
+- **Right to Erasure (FR-06):** Soft delete → 30-day grace → hard purge. Anonymized analytics may be retained (hash-only `userId`).
+- **Data Minimization:** Age, sex, goals optional; raw chat text not sent to NLP if shortcut path matches.
+- **Disclosure:** Privacy policy explicitly lists Gemini/OpenAI as sub-processors and the categories of data shared (only the user's most recent message; no PII attached).
+- **Children:** Service restricted to users **≥13** (declared at signup); under-13 accounts rejected.
+
+---
+
+## 9. Performance & Scalability Design
+
+### 9.1 Expected Load & Capacity Planning
+
+| Metric | v1.0 Target | Growth (v2.0) |
+|---|---|---|
+| Concurrent users | 10,000 (NFR-03) | 50,000 |
+| Requests/sec | 100 (NFR-04) | 500 |
+| Daily log entries | ~80,000 | ~500,000 |
+| Storage growth | ~50 MB/day | ~300 MB/day |
+| NLP calls/month (est.) | ~1.5M | ~9M |
+
+### 9.2 Caching Strategy
+
+| Cache Layer | Tool | TTL | Invalidation |
+|---|---|---|---|
+| CDN (Cloudflare) | Edge | Static assets 1y, API responses bypass | Versioned filenames |
+| Mobile in-app | Hive + Dio cache interceptor | Articles 24h; trends 5 min | Manual on edit |
+| Redis: NLP utterance cache | Redis | 1 h | Auto-expire |
+| Redis: dashboard rollup pointer | Redis | 5 min | Worker write |
+| Redis: rate-limit counters | Redis | 60s window | Auto-expire |
+| Redis: session/JWT-jti revocation | Redis | until token expiry | On logout |
+| MongoDB Atlas | WiredTiger | LRU | — |
+
+### 9.3 Database Optimization
+
+**Indexes (defined in §6.2):**
+
+| Index | Supports |
+|---|---|
+| `users.email` (unique) | Login lookup |
+| `log_entries.{userId, timestamp:-1}` | Timeline (FR-13) |
+| `log_entries.{userId, type, timestamp:-1}` | Trend aggregations (FR-14) |
+| `articles` text index `{title:10, tags:5, body:1}` | Search (FR-20) |
+| `bookmarks.{userId, articleId}` unique | Bookmark uniqueness |
+| `audit_logs.createdAt` TTL 90d | NFR-10 |
+
+**Query Budget:** Every endpoint completes its DB work within **≤150 ms p95**; slow queries (>300 ms) auto-logged. Aggregations on `log_entries` use the indexed prefix `{userId, timestamp}` to avoid full collection scans.
+
+**Connection Pooling:** Mongoose pool (`maxPoolSize: 25`) per Node instance; exhaustion alerts at >85%.
+
+### 9.4 Horizontal vs. Vertical Scaling
+
+- **App Tier (stateless):** Horizontal — Cloud Run scales by request concurrency (target 80 req/instance).
+- **MongoDB:** Vertical first (M10 → M30 → M50), then shard on `userId`.
+- **Redis:** Vertical until v2.0; consider Redis Cluster afterward.
+- **NLP:** Provider abstraction permits **multi-provider load-balancing** when one provider rate-limits.
+
+### 9.5 Load Balancing & CDN
+
+- **L7 Load Balancer** with least-outstanding-requests algorithm — superior to round-robin for variable-latency NLP calls.
+- **CDN:** Cloudflare for `/cdn/articles/*` images and admin web bundle; Brotli compression enabled.
+- **Mobile Asset Bundling:** App shell precaches critical fonts/icons; article images lazy-loaded with `cached_network_image`.
+
+---
+
+## 10. Error Handling & Logging
+
+### 10.1 Exception Handling Strategy
+
+Three-tier taxonomy:
+
+```typescript
+// Tier 1: Domain errors (expected; 4xx)
+class ValidationError extends DomainError { status = 400; }
+class AuthenticationError extends DomainError { status = 401; }
+class AuthorizationError extends DomainError { status = 403; }
+class NotFoundError extends DomainError { status = 404; }
+class RateLimitError extends DomainError { status = 429; }
+
+// Tier 2: Integration errors (5xx + retry hints)
+class NLPUnavailableError extends IntegrationError { status = 503; }
+class NLPTimeoutError extends IntegrationError { status = 504; }
+
+// Tier 3: Programmer errors (500 + alert)
+class UnexpectedError extends Error { status = 500; }
+```
+
+A central Express error middleware logs full context, sanitizes responses (no stack traces in prod), and emits RFC-7807 problem details. **Unhandled rejections** kill the process; the orchestrator restarts — avoiding zombie state.
+
+**Graceful Degradation (NFR-13):**
+
+- NLP outage → rule-based extractor + banner *"AI helper temporarily limited — shortcut commands still work."*
+- Email service outage → registration succeeds; verification email queued for retry.
+- Object storage outage → PDF export queued; user notified when ready.
+
+### 10.2 Logging Framework & Levels
+
+- **Library:** Pino (JSON), one event per line, redacted before serialization.
+- **Correlation:** `requestId` (UUID) per request, propagated to NLP via `X-Request-ID`.
+- **PII Hygiene:** Redactor strips `password`, `token`, `authorization`, `rawText`, `email` from logs (mobile and backend).
+
+| Level | Use |
+|---|---|
+| `fatal` | Process-killing error |
+| `error` | Request failed unexpectedly |
+| `warn` | Recoverable issues (retry succeeded, fallback engaged) |
+| `info` | Request boundaries, lifecycle |
+| `debug` | Per-request diagnostics (dev only) |
+
+### 10.3 Monitoring & Alerting
+
+| Signal | Tool | Threshold | Action |
+|---|---|---|---|
+| HTTP 5xx rate | Prometheus / Cloud Monitoring | >2% over 5 min | Page on-call |
+| `/logs/chat` p95 | Prometheus | >3s for 10 min (NFR-01) | Warning |
+| NLP error rate | Prometheus | >10% over 5 min | Auto-switch provider |
+| Mongo connection saturation | Prometheus | >85% | Auto-scale signal |
+| NLP cost (token spend) | Custom metric | >120% of daily budget | Notify product owner |
+| Login failure rate | Loki | >50/min from single IP | Auto-block 1h |
+| Crash-free sessions (mobile) | Sentry / Crashlytics | <99.5% | Hotfix |
+
+A **Grafana dashboard** consolidates: request rate, error rate, NLP confidence histogram, cost, MAU/DAU, crash-free rate.
+
+---
+
+## 11. Testing Strategy
+
+### 11.1 Test Pyramid
+
+```
+              ┌────────────┐
+              │  E2E (5%)   │   Playwright (web), Patrol (mobile)
+              │ Happy paths │
+              └────────────┘
+         ┌──────────────────────┐
+         │ Integration (25%)     │  Jest + Supertest + Testcontainers
+         │ API + Mongo + Redis   │
+         └──────────────────────┘
+    ┌────────────────────────────────┐
+    │           Unit (70%)            │  Jest (backend); flutter_test (mobile)
+    │ Services, parsers, NLP gating   │
+    └────────────────────────────────┘
+```
+
+### 11.2 Test Coverage Goals
+
+| Layer | Coverage Target |
+|---|---|
+| Domain services (backend) | **90% branch** |
+| Repositories | **80%** |
+| Controllers | **70%** |
+| Flutter widgets | **60% via widget tests** |
+| Overall | **≥80% line** (CI fails below) |
+
+### 11.3 Test Types & Tools
+
+| Type | Tool | Examples |
+|---|---|---|
+| **Unit (backend)** | Jest | `ShortcutParser.parse('/mood tired')`, `ConfidenceGate.evaluate(0.79)` |
+| **Unit (mobile)** | flutter_test | `LogEntry.fromJson()` round-trip |
+| **Widget (mobile)** | flutter_test | Chat bubble renders user vs. bot styling |
+| **Integration** | Supertest + Testcontainers (Mongo, Redis) | `POST /logs/chat` triggers mocked NLP → persists `LogEntry` |
+| **NLP Contract** | Recorded fixtures | Snapshot Gemini response schemas; alert on drift |
+| **E2E (mobile)** | Patrol / integration_test | Register → verify (mock) → first chat → see in timeline |
+| **E2E (web admin)** | Playwright | Login → create article → publish |
+| **Load** | k6 | 10,000 VUs ramping; verify NFR-01 and NFR-04 |
+| **Security** | OWASP ZAP DAST, Snyk SCA | Pre-release gate |
+| **Accessibility** | `flutter_a11y_test`, axe-core (admin) | WCAG 2.1 AA (NFR-14) |
+
+### 11.4 Test Data Strategy
+
+- **Factories** via `@faker-js/faker` (backend) and `mocktail` (Flutter) generate realistic users, logs, articles.
+- **NLP mocking:** `MockLLMProvider` returns canned, deterministic responses — no external API calls in CI.
+- **Nightly contract test** in staging hits the *real* Gemini API on a curated 50-utterance test set; alerts on accuracy drop.
+
+---
+
+## 12. Deployment & Maintenance
+
+### 12.1 CI/CD Pipeline (GitHub Actions)
+
+```mermaid
+flowchart LR
+    A[Push / PR] --> B[Lint<br/>ESLint, Prettier, dart analyze]
+    B --> C[Unit Tests<br/>Jest + flutter_test]
+    C --> D[Integration Tests<br/>Testcontainers]
+    D --> E[Security Scan<br/>Snyk + npm audit]
+    E --> F1[Build Docker<br/>backend image]
+    E --> F2[Build APK / IPA<br/>fastlane]
+    F1 --> G{Branch?}
+    G -->|main| H[Deploy → Staging Cloud Run]
+    F2 -->|main| I[Upload to Firebase App Distribution]
+    H --> J[E2E Tests<br/>Playwright + Patrol]
+    J --> K[Manual Approval]
+    K --> L[Promote → Production]
+    F2 -->|release tag| M[Submit to Play Store / TestFlight]
+    L --> N[Post-deploy<br/>Health Check]
+```
+
+### 12.2 Environment Strategy
+
+| Env | Purpose | Data | Infra |
+|---|---|---|---|
+| `local` | Dev laptops | Seeded fake data | docker-compose |
+| `preview-*` | PR feature previews | Snapshot seed | Ephemeral Cloud Run service per PR |
+| `staging` | QA & UAT | Anonymized prod-like | Mirrors prod (smaller scale) |
+| `production` | Live users | Real data | Multi-AZ; min 2 instances |
+
+### 12.3 Containerization
+
+**Backend `Dockerfile` (multi-stage):**
+
+```dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app /app
+RUN addgroup -S app && adduser -S app -G app
+USER app
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:8080/health || exit 1
+CMD ["node", "src/server.js"]
+```
+
+**`docker-compose.yml` (dev):** API, MongoDB 7, Redis 7, MailHog, MinIO (S3-compatible).
+
+### 12.4 Mobile Release Pipeline
+
+- **Android:** Gradle release build → signed AAB → Play Store internal track → closed beta → production. R8 obfuscation enabled.
+- **iOS:** Xcode release archive → TestFlight internal → external testers → App Store. Bitcode + dSYM upload to Sentry.
+- **Feature flags:** **ConfigCat** or **Firebase Remote Config** for kill-switches (e.g., disable NLP fallback provider).
+
+### 12.5 Maintenance Plan
+
+| Activity | Cadence | Owner |
+|---|---|---|
+| Dependency updates (Renovate auto-PRs) | Weekly | Eng |
+| Critical CVE patch | ≤24h | On-call |
+| MongoDB minor upgrade | Quarterly | DevOps |
+| NLP prompt regression suite | Per change | Eng |
+| Backup restoration drill | Quarterly | DevOps |
+| Penetration test | Annually | External |
+| Content audit (articles, products) | Monthly | Content team |
+| Privacy policy review | Bi-annually | Legal + PM |
+
+---
+
+## 13. Traceability Matrix
+
+| Req ID | Requirement Summary | SDD Section(s) | Module / Component |
+|---|---|---|---|
+| FR-01 | User registration with complexity rules | §5.1.1, §6.2 (users), §7.2.1 | Auth |
+| FR-02 | Email verification | §5.1.1, §5.3.1, §6.2 (email_tokens) | Auth, Notifications |
+| FR-03 | Login + token issuance | §5.1.1, §7.2.1, §8.1 | Auth |
+| FR-04 | Forgot Password | §5.1.1, §6.2 (email_tokens) | Auth |
+| FR-05 | View/edit profile | §5.1.1, §7.2.1 (`/me`) | Auth |
+| FR-06 | Account deletion + data purge | §5.1.1, §5.4.2, §8.6 | Auth |
+| FR-07 | Chat interface | §5.1.2, §7.1.2 | Logging, Mobile UI |
+| FR-08 | NLP intent + entity extraction | §5.1.3 (prompt + few-shot) | NLP |
+| FR-09 | Persist when confidence ≥80% | §5.1.3 (Confidence Gate), §5.5.1 | NLP, Logging |
+| FR-10 | Low-confidence clarification | §5.1.3, §5.3.2 | NLP, Mobile UI |
+| FR-11 | Manual edit/delete current-day log | §5.1.2, §7.2.1 (`PATCH/DELETE /logs/:id`) | Logging |
+| FR-12 | Shortcut commands | §5.1.2 (Shortcut Parser) | Logging |
+| FR-13 | Daily timeline view | §5.1.2 (Timeline Builder), §7.2.1 (`GET /logs`) | Logging, Mobile UI |
+| FR-14 | Dashboard aggregations | §5.1.4, §6.2 (trend_rollups) | Trends |
+| FR-15 | Line/bar/pie charts | §5.1.4, §7.1 (fl_chart) | Mobile UI |
+| FR-16 | Custom date range filters | §5.1.4, §7.2.1 (`/trends?from=&to=`) | Trends |
+| FR-17 | PDF export | §5.1.4, §5.3.3 (worker) | Trends, PDF Worker |
+| FR-18 | Habit ↔ symptom correlations | §5.1.4 (Correlation Algorithm) | Trends |
+| FR-19 | Categorised guide list | §5.1.5, §7.2.1 (`/hub/articles`) | Hub |
+| FR-20 | Keyword search | §5.1.5, §6.2 (text index) | Hub |
+| FR-21 | Full-text article rendering | §5.1.5, §7.1 (flutter_markdown) | Hub, Mobile UI |
+| FR-22 | Bookmark articles | §5.1.5, §6.2 (bookmarks) | Hub |
+| FR-23 | Recommendations from logs | §5.1.5 (Content-based filter) | Hub |
+| FR-24 | Product listing w/ external links | §5.1.6, §7.2.1 | Products |
+| FR-25 | Product categories | §5.1.6, §6.2 | Products |
+| FR-26 | Personalised product suggestions | §5.1.6 | Products |
+| FR-27 | Admin article management | §5.1.7, §7.2.1 (`/admin/articles`) | Admin |
+| FR-28 | Admin product management | §5.1.7 | Admin |
+| FR-29 | Anonymised usage analytics | §5.1.7, §8.6 | Admin |
+| NFR-01 | ≤3s chatbot response (95%) | §9.1, §10.3, §11.3 (k6) | Architecture-wide |
+| NFR-02 | Screen transitions ≤2s on 4G | §9.5, mobile asset strategy | Mobile UI, CDN |
+| NFR-03 | 10K concurrent users | §4.6, §9.4 | Infra |
+| NFR-04 | 100 req/s backend | §9.1, §9.4 | Infra |
+| NFR-05 | TLS 1.3 | §8.2 | Edge / LB |
+| NFR-06 | bcrypt password hashing | §5.1.1, §8.2 (cost 12) | Auth |
+| NFR-07 | JWT authentication | §8.1 | Auth |
+| NFR-08 | AES-256 at rest | §8.2 (Atlas + CSFLE) | DB |
+| NFR-09 | RBAC | §5.1.7, §8.1 | Middleware |
+| NFR-10 | 90-day audit logs | §6.2 (audit_logs TTL), §8.5 | Logging |
+| NFR-11 | 99.5% uptime | §4.6, §12.2 | Infra |
+| NFR-12 | Daily backups + 1h RTO | §6.6 | DB |
+| NFR-13 | Graceful NLP degradation | §5.1.3 (fallback), §10.1 | NLP |
+| NFR-14 | WCAG 2.1 AA | §7.1.3, §11.3 | Mobile UI |
+| NFR-15 | Chat status indicators | §7.1.2 (typing dots, "logged") | Mobile UI |
+| NFR-16 | Onboarding <3 min | §7.1.4 | Mobile UI |
+| NFR-17 | Responsive mobile/tablet | §7.1 (Flutter responsive) | Mobile UI |
+
+---
+
+## 14. Appendices
+
+### Appendix A — Glossary
+
+- **Confidence Gate** — The decision step that compares NLP confidence to the 0.80 threshold and routes to persist-vs-clarify.
+- **CSFLE** — Client-Side Field-Level Encryption (MongoDB) — encrypts specific fields with a customer-held key.
+- **Few-shot prompting** — Including example input/output pairs in the prompt to guide LLM behaviour.
+- **Hallucination** — Plausible-sounding but factually incorrect LLM output.
+- **Outbox pattern (mobile)** — Local queue of unsent operations, drained on reconnect.
+- **Prompt injection** — Adversarial input that overrides the system prompt.
+- **Rollup** — Pre-aggregated dataset stored to accelerate dashboards.
+- **Soft delete** — Marking a record deleted without immediate physical removal; allows recovery within a grace window.
+
+### Appendix B — Diagram Index
+
+| # | Diagram | Section |
+|---|---|---|
+| 1 | System Context | §2.1 |
+| 2 | High-Level Architecture | §4.2 |
+| 3 | Subsystem Decomposition | §4.3 |
+| 4 | Canonical Log-a-Meal Sequence | §4.4 |
+| 5 | Deployment Architecture | §4.6 |
+| 6 | Domain Class Diagram | §5.2 |
+| 7 | Registration Sequence | §5.3.1 |
+| 8 | Low-Confidence Fallback Sequence | §5.3.2 |
+| 9 | PDF Export Sequence | §5.3.3 |
+| 10 | LogEntry State Machine | §5.4.1 |
+| 11 | Account Lifecycle | §5.4.2 |
+| 12 | NLP Chat Activity | §5.5.1 |
+| 13 | Trend Dashboard Activity | §5.5.2 |
+| 14 | Entity-Relationship Diagram | §6.1 |
+| 15 | CI/CD Pipeline | §12.1 |
+
+### Appendix C — Decision Log
+
+| ID | Decision | Rationale | Alternatives | Status |
+|---|---|---|---|---|
+| DL-01 | Modular Monolith over Microservices | Small team, ≤10K users, low ops | Microservices, Serverless | ✅ Adopted |
+| DL-02 | Flutter over React Native | Charting performance, single codebase, growing community in PK | RN | ✅ Adopted |
+| DL-03 | Node.js over Python Flask | Async I/O ideal for NLP streaming | Flask | ✅ Adopted |
+| DL-04 | MongoDB over Firebase Firestore | Aggregation power, no vendor lock-in, text index | Firestore | ✅ Adopted |
+| DL-05 | Gemini 1.5 Flash default + OpenAI fallback | Cost + multi-provider resilience | Single provider | ✅ Adopted |
+| DL-06 | bcrypt cost 12 (above NFR min) | Future-proof against compute growth | argon2id, scrypt | ✅ Adopted |
+| DL-07 | CSFLE for PHI fields | Defence in depth, even vs. DB admins | Application-layer encryption | ✅ Adopted |
+| DL-08 | Confidence threshold 0.80 | Balance precision and friction | 0.70 / 0.90 | ✅ Adopted (tunable) |
+| DL-09 | Shortcut path bypasses NLP | Latency, cost, user empowerment | LLM-only | ✅ Adopted |
+| DL-10 | Pre-aggregated trend rollups | Sub-200ms dashboard load | Live aggregation | ✅ Adopted |
+| DL-11 | External-link products (no IAP) | Per SRS scope; avoids payments PCI burden | In-app purchase | ✅ Adopted |
+| DL-12 | Web admin separate from mobile | Content team workflow needs | Embedded in mobile | ✅ Adopted |
+
+### Appendix D — Configuration Reference (Excerpt)
+
+```env
+# Application
+NODE_ENV=production
+PORT=8080
+APP_BASE_URL=https://api.vitalis.app
+
+# MongoDB
+MONGO_URI=mongodb+srv://...
+MONGO_POOL_SIZE=25
+
+# Redis
+REDIS_URL=rediss://...
+
+# Auth
+JWT_PRIVATE_KEY_PATH=/secrets/jwt_private.pem
+JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem
+ACCESS_TOKEN_TTL=15m
+REFRESH_TOKEN_TTL=7d
+BCRYPT_COST=12
+
+# NLP
+NLP_PRIMARY=gemini
+NLP_FALLBACK=openai
+GEMINI_API_KEY=<<secret>>
+GEMINI_MODEL=gemini-1.5-flash
+OPENAI_API_KEY=<<secret>>
+OPENAI_MODEL=gpt-4o-mini
+NLP_TIMEOUT_MS=8000
+NLP_MAX_RETRIES=3
+NLP_CONFIDENCE_THRESHOLD=0.80
+NLP_UTTERANCE_CACHE_TTL=3600
+
+# Email
+SENDGRID_API_KEY=<<secret>>
+EMAIL_FROM="Vitalis <noreply@vitalis.app>"
+
+# Storage
+GCS_BUCKET=vitalis-prod-media
+GCS_SIGNED_URL_TTL=300
+
+# Logging
+LOG_LEVEL=info
+LOG_REDACT_FIELDS=password,token,authorization,rawText,email
+```
+
+### Appendix E — Suggested Repository Layout
+
+```
+NLP-Based-Lifestyle-Metabolic-Health-Assistant/
+├── README.md
+├── docs/
+│   ├── SDD.md          ← this document
+│   ├── SRS.md
+│   └── diagrams/
+├── mobile/             ← Flutter app
+│   ├── lib/
+│   │   ├── core/
+│   │   ├── features/
+│   │   │   ├── auth/
+│   │   │   ├── chat/
+│   │   │   ├── trends/
+│   │   │   ├── hub/
+│   │   │   └── shop/
+│   │   └── main.dart
+│   └── test/
+├── backend/            ← Node.js API
+│   ├── src/
+│   │   ├── modules/
+│   │   │   ├── auth/
+│   │   │   ├── logging/
+│   │   │   ├── nlp/
+│   │   │   ├── trends/
+│   │   │   ├── hub/
+│   │   │   ├── products/
+│   │   │   └── admin/
+│   │   ├── common/
+│   │   └── server.js
+│   ├── migrations/
+│   └── test/
+├── admin-web/          ← React admin portal
+│   └── src/
+├── infra/
+│   ├── docker-compose.yml
+│   ├── Dockerfile.api
+│   └── terraform/
+└── .github/workflows/
+```
+
+---
+
+## 📌 Document Closure
+
+This Software Design Document provides a **complete, traceable, and implementable blueprint** for the Vitalis NLP-Based Lifestyle & Metabolic Health Assistant. Every functional and non-functional requirement defined in the SRS has been transformed into a concrete design element (see §13). Architectural decisions are justified against alternatives, and constraint-driven trade-offs (Flutter, MongoDB, Gemini-first) are explicitly recorded in the Decision Log (Appendix C).
+
+The next deliverable is the **Implementation Phase**, beginning with Sprint 0: repository scaffolding (Appendix E), CI/CD bootstrap, MongoDB seed migrations, and the authentication + first-message vertical slice.
+
+**End of Document — SDD v1.0**
+
+---
+
+### 💡 GitHub-Specific Tips
+
+1. **File location:** Save this as `docs/SDD.md` (or `SDD.md` at repo root) — GitHub will render it natively with full Markdown + Mermaid support.
+2. **Mermaid diagrams:** All ```mermaid blocks above render automatically on GitHub.com — no extra setup.
+3. **Table of Contents links:** The `[1. Introduction](#1-introduction)` style anchors work on GitHub because it auto-generates slugs from heading text.
+4. **Want a downloadable version?** I can package this as a **PDF or Word file** on request — just say the word.
+5. **Want me to also generate the SRS in this same polished format?** I can do that too — point me at the file and I'll match the styling.
